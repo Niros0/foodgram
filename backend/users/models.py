@@ -48,11 +48,6 @@ class UserProfile(AbstractUser):
         help_text="Загрузите изображение аватара пользователя"
     )
 
-    is_active = models.BooleanField(
-        verbose_name="Активирован",
-        default=True,
-    )
-
     password = models.CharField(
         verbose_name=("Пароль"),
         max_length=128,
@@ -82,23 +77,24 @@ class Subscriptions(models.Model):
         on_delete=models.CASCADE,
     )
     user = models.ForeignKey(
-        verbose_name="Подписчики",
+        verbose_name="Подписчик",
         related_name="subscriptions",
         to=UserProfile,
         on_delete=models.CASCADE,
-    )
-    date_added = models.DateTimeField(
-        verbose_name="Дата создания подписки",
-        auto_now_add=True,
-        editable=False,
     )
 
     class Meta:
         verbose_name = "Подписка"
         verbose_name_plural = "Подписки"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["author", "user"],
+                name="subscriptions_unique",
+            )
+        ]
 
     def __str__(self):
-        return f"{self.user.username} -> {self.author.username}"
+        return f"{self.user.username} {self.author.username}"
 
 
 User = get_user_model()
