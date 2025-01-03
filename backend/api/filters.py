@@ -7,10 +7,6 @@ from users.models import User
 
 class RecipeFilter(filter.FilterSet):
 
-    def __init__(self, *args, user=None, **kwargs):
-        self.user = user
-        super().__init__(*args, **kwargs)
-
     author = filter.ModelChoiceFilter(
         queryset=User.objects.all(),
         to_field_name="id",
@@ -30,14 +26,18 @@ class RecipeFilter(filter.FilterSet):
         fields = ("tags", "author", "is_favorited", "is_in_shopping_cart")
 
     def get_is_favorited(self, queryset, name, value):
-        if value:
-            return queryset.filter(favorites__user=self.user)
-        return queryset.exclude(favorites__user=self.user)
-
+        if self.request.user.is_authenticated:
+            if value:
+                return queryset.filter(favorites__user=self.request.user)
+            return queryset.exclude(favorites__user=self.request.user)
+        return queryset
+    
     def get_is_in_shopping_cart(self, queryset, name, value):
-        if value:
-            return queryset.filter(shoppinga_cart__user=self.user)
-        return queryset.exclude(shoppinga_cart__user=self.user)
+        if self.request.user.is_authenticated:
+            if value:
+                return queryset.filter(shoppinga_cart__user=self.request.user)
+            return queryset.exclude(shoppinga_cart__user=self.request.user)
+        return queryset
 
 
 class SearchIngredientsFilter(SearchFilter):

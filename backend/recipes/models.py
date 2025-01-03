@@ -2,7 +2,7 @@ from django.db import models
 from users.models import User
 from django.core.validators import MinValueValidator
 from shortener.models import UrlMap
-from django.core.exceptions import ValidationError
+
 
 class Ingredient(models.Model):
     """Модель ингредиента"""
@@ -63,18 +63,18 @@ class Recipe(models.Model):
     name = models.CharField(
         max_length=255,
         verbose_name="Название рецепта",
-        help_text="Введите название рецепта"
+        help_text="Введите название рецепта",
     )
 
     image = models.ImageField(
         upload_to='recipes/',
         verbose_name="Картинка рецепта",
-        help_text="Загрузите изображение рецепта"
+        help_text="Загрузите изображение рецепта",
     )
 
     text = models.TextField(
         verbose_name="Описание рецепта",
-        help_text="Введите описание рецепта"
+        help_text="Введите описание рецепта",
     )
 
     ingredients = models.ManyToManyField(
@@ -88,12 +88,11 @@ class Recipe(models.Model):
         Tag,
         related_name="recipes",
         verbose_name="Теги",
-        help_text="Выберите теги для рецепта"
+        help_text="Выберите теги для рецепта",
     )
 
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name="Время приготовления",
-        default=0,
         validators=[
             MinValueValidator(1, "Укажите время приготовления!")
         ],
@@ -109,13 +108,6 @@ class Recipe(models.Model):
         null=True,
         blank=True
     )
-
-    def clean(self):
-        if not self.ingredients.exists():
-            raise ValidationError("Поле ingredients не должно быть пустым.")
-        if not self.tags.exists():
-            raise ValidationError("Поле tags не должно быть пустым.")
-        super().clean()
 
     class Meta:
         verbose_name = "Рецепт"

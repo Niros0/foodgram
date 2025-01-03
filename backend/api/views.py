@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from api.mixins import ModelMixinSet
-from recipes.models import Tag, Recipe, Ingredient, ShoppingCart, Favorites
+from recipes.models import Tag, Recipe, Ingredient, ShoppingCart, Favorites, AmountIngredient
 from djoser.views import UserViewSet as DjoserUserViewSet
 from api.pagination import CustomPageNumberPagination
 from rest_framework.views import APIView
@@ -35,6 +35,12 @@ import random
 import string
 from django.http import JsonResponse
 from rest_framework.renderers import JSONRenderer
+from django.template.loader import render_to_string
+from weasyprint import HTML, CSS
+from django.conf import settings
+from rest_framework.exceptions import APIException
+from django.template.context import Context
+from django.http import Http404, HttpResponseBadRequest
 
 class TagsViewSet(ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
@@ -51,22 +57,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        # queryset = queryset.annotate()
         if self.request.user.is_authenticated:
             is_in_shopping_cart_subquery = Exists(
                 ShoppingCart.objects.filter(
                     recipe_id=OuterRef("id"), user=self.request.user
                 )
-            ) 
-            queryset = queryset.annotate(
-                is_in_shopping_cart=is_in_shopping_cart_subquery
+            )
+            is_favorited_subquery = Exists(
+                Favorites.objects.filter(
+                    recipe_id=OuterRef("id"), user=self.request.user
+                )
             )
             queryset = queryset.annotate(
-                is_favorited=Exists(
-                    Favorites.objects.filter(
-                        recipe_id=OuterRef("id"), user=self.request.user
-                    )
-                )
+                is_in_shopping_cart=is_in_shopping_cart_subquery,
+                is_favorited=is_favorited_subquery,
             )
         queryset = queryset.select_related("author")
         queryset = queryset.prefetch_related("recipe_ingredients", "tags")
@@ -93,11 +97,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        get_object_or_404(Favorites, recipe=recipe, user=user).delete()
-        return Response(
-            {"message": "Рецепт удален из избранных"},
-            status=status.HTTP_204_NO_CONTENT,
-        )
+        try:
+            favor = Favorites.objects.get(recipe=recipe, user=user)
+            favor.delete()
+            return Response(
+                {"message": "Рецепт удален из избранных"},
+                status=status.HTTP_204_NO_CONTENT,
+            )
+        except Favorites.DoesNotExist:
+            return HttpResponseBadRequest("Рецепт не найден в избранных.")
 
     @action(
         methods=["post", "delete"],
@@ -106,20 +114,55 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         """Список покупок."""
-        recipe = self.get_object()
+        recipe = get_object_or_404(Recipe, id=pk)
         user = request.user
         if request.method == "POST":
             serializer = ShoppingSerializer(
                 data={"recipe": recipe.id, "user": user.id}
             )
             serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        get_object_or_404(ShoppingCart, recipe=recipe, user=user).delete()
-        return Response(
+            try:
+                existing_cart = ShoppingCart.objects.get(recipe=recipe, user=user)
+                return Response(
+                    {"message": "Рецепт уже в корзине."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            except ShoppingCart.DoesNotExist:
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            cart = ShoppingCart.objects.get(recipe=recipe, user=user)
+            cart.delete()
+            return Response(
             {"message": "Рецепт удален из списка покупок"},
             status=status.HTTP_204_NO_CONTENT,
+            )
+        except ShoppingCart.DoesNotExist:
+            return HttpResponseBadRequest("Рецепт не найден в корзине.")
+
+    @action(methods=("get",), detail=False, permission_classes=(IsAuthenticated,),)
+    def download_shopping_cart(self, request):
+        """Скачать список покупок."""
+        # Получить ингредиенты для пользователя
+        ingredients = (
+        AmountIngredient.objects.filter(
+        recipe__shoppinga_cart__user=request.user
         )
+        .values("ingredients__name", "ingredients__measurement_unit")
+        .annotate(sum_amount=Sum("amount"))
+        )
+
+        # Создать HTML-шаблон
+        html = render_to_string(
+        "shopping_cart.html", {"ingredients": ingredients}
+        )
+
+        # Создать PDF-ответ
+        response = HttpResponse(content_type="application/pdf")
+        response["Content-Disposition"] = "attachment; filename=shortlist.pdf"
+        HTML(string=html).write_pdf(response, stylesheets=[CSS(f"{settings.STATICFILES_DIRS[0]}/css/pdf.css")])
+
+        return response
 
 
 class IngredientViewSet(ReadOnlyModelViewSet):
@@ -162,6 +205,7 @@ class UserViewSet(DjoserUserViewSet):
         """Создание и удаление подписки на автора."""
         user = request.user
         if request.method == "POST":
+            get_object_or_404(User, id=id)
             serializer = SubscribeSerializer(
                 data={"user": user.id, "author": id},
                 context={"request": request},
@@ -169,13 +213,15 @@ class UserViewSet(DjoserUserViewSet):
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        get_object_or_404(
-            Subscriptions, user=user, author__id=id
-        ).delete()
-        return Response(
-            {"message": "Подписка удалена"}, status=status.HTTP_204_NO_CONTENT
-        )
-
+        try:
+            get_object_or_404(User, id=id)
+            subscription = Subscriptions.objects.get(user=user, author__id=id)
+            subscription.delete()
+            return Response(
+                {"message": "Подписка удалена"}, status=status.HTTP_204_NO_CONTENT
+            )
+        except Subscriptions.DoesNotExist:
+            return HttpResponseBadRequest("Subscription does not exist.")
     @action(
         detail=False, methods=["GET"], permission_classes=(IsAuthenticated,)
     )

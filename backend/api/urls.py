@@ -24,3 +24,4 @@ urlpatterns = (
     path('users/me/avatar/', AvatarView.as_view(), name='avatar'),
     path('recipes/<int:pk>/get-link/', RecipeLinkView.as_view(), name='get_recipe_link'),
 )
+

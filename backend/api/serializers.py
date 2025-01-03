@@ -7,7 +7,22 @@ from shortener.models import UrlMap
 from shortener.shortener import create
 from django.urls import reverse
 from django.http import request
+from collections.abc import Hashable
 
+class BaseSerializer(serializers.ModelSerializer):
+    """Базовый класс для валидации пустых и повторяющихся значений."""
+
+    def validate_non_empty_list(self, field_name, value):
+        if not value:
+            raise serializers.ValidationError(f"Поле {field_name} не должно быть пустым.")
+        unique_values = set()
+        for item in value:
+            if isinstance(item, Hashable):
+                if item in unique_values:
+                    raise serializers.ValidationError(f"Поле {field_name} содержит повторяющиеся элементы!")
+                unique_values.add(item)
+        return value
+    
 class UserCreateSerializer(ModelSerializer):
     """Сериализатор для создания пользователя."""
 
@@ -148,7 +163,7 @@ class IngredientRecipeCreateSerializer(serializers.Serializer):
     )
 
 
-class RecipeCreateSerializer(serializers.ModelSerializer):
+class RecipeCreateSerializer(BaseSerializer):
     image = Base64ImageField(required=True)
     tags = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Tag.objects.all(), required=True
@@ -167,33 +182,29 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
         )
 
     def validate_ingredients(self, value):
-        if not value:
-            raise serializers.ValidationError("Поле ингредиентов не должно быть пустым.")
-        ingredients = set()
-        for ingredient in value:
-            if ingredient["id"] in ingredients:
-                raise serializers.ValidationError(
-                    "У рецепта не может быть два одинаковых ингредиента!"
-                )
-            ingredients.add(ingredient["id"])
-        return value
+        return self.validate_non_empty_list('ingredients', value)
 
     def validate_tags(self, value):
-        if not value:
-            raise serializers.ValidationError("Поле тегов не должно быть пустым.") 
+        return self.validate_non_empty_list('tags', value)
+    
+    def validate_image(self, value):
+        return self.validate_non_empty_list('image', value)
 
     @staticmethod
     def create_ingredients(ingredients, recipe):
         """Добавление ингредиентов в рецепт."""
-        AmountIngredient.objects.bulk_create(
-            AmountIngredient(
-                recipe=recipe,
-                ingredients_id=ingredient["id"],
-                amount=ingredient["amount"],
+        try:
+            AmountIngredient.objects.bulk_create(
+                AmountIngredient(
+                    recipe=recipe,
+                    ingredients_id=ingredient["id"],
+                    amount=ingredient["amount"],
+                )
+                for ingredient in ingredients
             )
-            for ingredient in ingredients
-        )
-
+        except Exception as e:
+            raise serializers.ValidationError(f"Ингридиенты не найдены: {e}")
+        
     def create(self, validated_data: dict):
         tags = validated_data.pop("tags")
         ingredients = validated_data.pop("ingredients")
@@ -209,11 +220,13 @@ class RecipeCreateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         tags = validated_data.pop("tags", None)
         ingredients = validated_data.pop("ingredients", None)
-        if tags is not None:
-            instance.tags.set(tags)
-        if ingredients is not None:
-            instance.ingredients.clear()
-            self.create_ingredients(ingredients, instance)
+        if ingredients is None:
+            raise serializers.ValidationError("Поле `ingredients` обязательно для обновления.")
+        if tags is None:
+            raise serializers.ValidationError("Поле `tags` обязательно для обновления.")
+        instance.tags.set(tags)
+        instance.ingredients.clear()
+        self.create_ingredients(ingredients, instance)
         return super().update(instance, validated_data)
 
     def to_representation(self, instance):
@@ -325,10 +338,12 @@ class SubscribeSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         request = self.context.get("request")
-        limit = request.query_params.get("recipes_limit")
+        limit = request.query_params.get("recipes_limit", 0)
         data = super().to_representation(instance)
         if limit and limit.isdigit():
-            data["recipes"] = data["recipes"]
+            data["recipes"] = data["recipes"][:int(limit)]
+        recipes_count = instance.author.recipes.count()
+        data["recipes_count"] = recipes_count
         return data
 
 

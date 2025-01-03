@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="static/css/pdf.css">
+    <title>Список покупок</title>
+</head>
+<body>
+    <h1>Список покупок</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Название ингредиента</th>
+                <th>Количество</th>
+                <th>Единица измерения</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ingredient in ingredients %}
+            <tr class="row{% cycle '1' '2' %}">
+                <td class="num">{{ forloop.counter }}</td>
+                <td class="num">{{ ingredient.ingredients__name }}</td>
+                <td class="num">{{ ingredient.sum_amount }}</td>
+                <td class="num">{{ ingredient.ingredients__measurement_unit }}</td>
+            </tr>
+            {% endfor %}
+
+        </tbody>
+    </table>
+
+</body>
+</html>
