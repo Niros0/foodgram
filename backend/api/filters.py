@@ -1,7 +1,6 @@
 from django_filters import rest_framework as filter
-from rest_framework.filters import SearchFilter
 
-from recipes.models import Ingredient, Recipe, Tag
+from recipes.models import Recipe, Tag
 from users.models import User
 
 
@@ -38,11 +37,3 @@ class RecipeFilter(filter.FilterSet):
                 return queryset.filter(shoppinga_cart__user=self.request.user)
             return queryset.exclude(shoppinga_cart__user=self.request.user)
         return queryset
-
-
-class SearchIngredientsFilter(SearchFilter):
-    search_param = "name"
-
-    class Meta:
-        model = Ingredient
-        fields = ("name",)

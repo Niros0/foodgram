@@ -9,7 +9,7 @@ from api.serializers import (
     AvatarSerializer, 
     TagsSerializer, 
     IngredientSerializer, 
-    RecipeCreateSerializer, 
+    RecipeCreateSerializer,
     RecipeSerializer,
     ShoppingSerializer,
     FavoriteSerializer,
