@@ -169,7 +169,7 @@ class IngredientViewSet(ReadOnlyModelViewSet):
     serializer_class = IngredientSerializer
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
     filterset_fields = ('name',)
-    search_fields = ('name',) 
+    search_fields = ('name',)
 
 
 class UserViewSet(DjoserUserViewSet):
@@ -277,7 +277,7 @@ class RecipeLinkView(APIView):
         full_url = request.build_absolute_uri()
         base_url = '/'.join(full_url.split('/')[:-5])
         serializer = RecipeLinkSerializer(
-            recipe, 
+            recipe,
             context={'base_url': base_url}
         )
         return Response(serializer.data)
