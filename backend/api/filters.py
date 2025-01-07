@@ -5,7 +5,9 @@ from users.models import User
 
 
 class RecipeFilter(filter.FilterSet):
-
+    """
+    Класс фильтров для рецептов.
+    """
     author = filter.ModelChoiceFilter(
         queryset=User.objects.all(),
         to_field_name="id",
@@ -30,7 +32,7 @@ class RecipeFilter(filter.FilterSet):
                 return queryset.filter(favorites__user=self.request.user)
             return queryset.exclude(favorites__user=self.request.user)
         return queryset
-    
+
     def get_is_in_shopping_cart(self, queryset, name, value):
         if self.request.user.is_authenticated:
             if value:

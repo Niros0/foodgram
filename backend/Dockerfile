@@ -6,4 +6,4 @@ COPY . .
 
 RUN pip install -r requirements.txt --no-cache-dir
 
-CMD ["gunicorn", "--bind", "0.0.0.0:9090", "foodgramm.serveblog.net"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "backend.wsgi"]

@@ -1,3 +1,6 @@
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
 from api.views import (
     IngredientViewSet,
     RecipeViewSet,
@@ -6,8 +9,6 @@ from api.views import (
     AvatarView,
     RecipeLinkView,
 )
-from django.urls import include, path
-from rest_framework.routers import DefaultRouter
 
 app_name = "api"
 
@@ -22,6 +23,9 @@ urlpatterns = (
     path("", include(router.urls)),
     path("auth/", include("djoser.urls.authtoken")),
     path('users/me/avatar/', AvatarView.as_view(), name='avatar'),
-    path('recipes/<int:pk>/get-link/', RecipeLinkView.as_view(), name='get_recipe_link'),
+    path(
+        'recipes/<int:pk>/get-link/',
+        RecipeLinkView.as_view(),
+        name='get_recipe_link'
+    ),
 )
-

@@ -1,14 +1,33 @@
-from rest_framework import viewsets
-from api.mixins import ModelMixinSet
-from recipes.models import Tag, Recipe, Ingredient, ShoppingCart, Favorites, AmountIngredient
+from rest_framework import viewsets, filters
 from djoser.views import UserViewSet as DjoserUserViewSet
-from api.pagination import CustomPageNumberPagination
 from rest_framework.views import APIView
+from rest_framework import status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from rest_framework.viewsets import ReadOnlyModelViewSet
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Exists, OuterRef, Sum, Count
+from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.template.loader import render_to_string
+from weasyprint import HTML, CSS
+from django.conf import settings
+
+from recipes.models import (
+    Tag,
+    Recipe,
+    Ingredient,
+    ShoppingCart,
+    Favorites,
+    AmountIngredient
+)
+from api.pagination import CustomPageNumberPagination
 from api.permissions import IsAuthOwner, IsAuthAdminAuthorOrReadOnly
 from api.serializers import (
-    AvatarSerializer, 
-    TagsSerializer, 
-    IngredientSerializer, 
+    AvatarSerializer,
+    TagsSerializer,
+    IngredientSerializer,
     RecipeCreateSerializer,
     RecipeSerializer,
     ShoppingSerializer,
@@ -17,30 +36,8 @@ from api.serializers import (
     RecipeLinkSerializer
 )
 from users.models import User, Subscriptions
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework.viewsets import ReadOnlyModelViewSet
-from rest_framework import filters
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.permissions import AllowAny, IsAuthenticated
-from django.db.models import Exists, OuterRef, Sum, Count
-from rest_framework.decorators import action
-from django.shortcuts import get_object_or_404
 from .filters import RecipeFilter
-from django.http import HttpResponse
-from django.urls import reverse
-from django.http import JsonResponse
-import random
-import string
-from django.http import JsonResponse
-from rest_framework.renderers import JSONRenderer
-from django.template.loader import render_to_string
-from weasyprint import HTML, CSS
-from django.conf import settings
-from rest_framework.exceptions import APIException
-from django.template.context import Context
-from django.http import Http404, HttpResponseBadRequest
+
 
 class TagsViewSet(ReadOnlyModelViewSet):
     queryset = Tag.objects.all()
@@ -121,46 +118,48 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 data={"recipe": recipe.id, "user": user.id}
             )
             serializer.is_valid(raise_exception=True)
-            try:
-                existing_cart = ShoppingCart.objects.get(recipe=recipe, user=user)
+            if ShoppingCart.objects.filter(recipe=recipe, user=user).exists():
                 return Response(
                     {"message": "Рецепт уже в корзине."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            except ShoppingCart.DoesNotExist:
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            serializer.save()
+            return Response(
+                serializer.data,
+                status=status.HTTP_201_CREATED
+            )
         try:
             cart = ShoppingCart.objects.get(recipe=recipe, user=user)
             cart.delete()
-            return Response(
-            {"message": "Рецепт удален из списка покупок"},
-            status=status.HTTP_204_NO_CONTENT,
-            )
+            return Response({"message": "Рецепт удален из списка покупок"},
+                            status=status.HTTP_204_NO_CONTENT,
+                            )
         except ShoppingCart.DoesNotExist:
             return HttpResponseBadRequest("Рецепт не найден в корзине.")
 
-    @action(methods=("get",), detail=False, permission_classes=(IsAuthenticated,),)
+    @action(
+        methods=("get",),
+        detail=False,
+        permission_classes=(IsAuthenticated,),
+    )
     def download_shopping_cart(self, request):
         """Скачать список покупок."""
-        # Получить ингредиенты для пользователя
         ingredients = (
-        AmountIngredient.objects.filter(
-        recipe__shoppinga_cart__user=request.user
-        )
-        .values("ingredients__name", "ingredients__measurement_unit")
-        .annotate(sum_amount=Sum("amount"))
+            AmountIngredient.objects.filter(
+                recipe__shoppinga_cart__user=request.user)
+            .values("ingredients__name", "ingredients__measurement_unit")
+            .annotate(sum_amount=Sum("amount"))
         )
 
-        # Создать HTML-шаблон
         html = render_to_string(
-        "shopping_cart.html", {"ingredients": ingredients}
+            "shopping_cart.html",
+            {"ingredients": ingredients}
         )
 
-        # Создать PDF-ответ
         response = HttpResponse(content_type="application/pdf")
         response["Content-Disposition"] = "attachment; filename=shortlist.pdf"
-        HTML(string=html).write_pdf(response, stylesheets=[CSS(f"{settings.STATICFILES_DIRS[0]}/css/pdf.css")])
+        HTML(string=html).write_pdf(response, stylesheets=[
+            CSS(f"{settings.STATICFILES_DIRS[0]}/css/pdf.css")])
 
         return response
 
@@ -218,12 +217,16 @@ class UserViewSet(DjoserUserViewSet):
             subscription = Subscriptions.objects.get(user=user, author__id=id)
             subscription.delete()
             return Response(
-                {"message": "Подписка удалена"}, status=status.HTTP_204_NO_CONTENT
+                {"message": "Подписка удалена"},
+                status=status.HTTP_204_NO_CONTENT
             )
         except Subscriptions.DoesNotExist:
             return HttpResponseBadRequest("Subscription does not exist.")
+
     @action(
-        detail=False, methods=["GET"], permission_classes=(IsAuthenticated,)
+        detail=False,
+        methods=["GET"],
+        permission_classes=(IsAuthenticated,)
     )
     def subscriptions(self, request):
         """Список подписок на авторов."""
@@ -239,6 +242,7 @@ class UserViewSet(DjoserUserViewSet):
         )
         return self.get_paginated_response(serializer.data)
 
+
 class AvatarView(APIView):
     permission_classes = [IsAuthOwner]
     serializer_class = AvatarSerializer
@@ -250,7 +254,10 @@ class AvatarView(APIView):
         if serializer.is_valid():
             serializer.update(user, serializer.validated_data)
             user.save()
-            return Response({'avatar': request.build_absolute_uri(user.avatar.url)}, status=status.HTTP_200_OK)
+            return Response(
+                {'avatar': request.build_absolute_uri(user.avatar.url)},
+                status=status.HTTP_200_OK
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
@@ -267,6 +274,10 @@ class AvatarView(APIView):
 class RecipeLinkView(APIView):
     def get(self, request, pk):
         recipe = get_object_or_404(Recipe, id=pk)
-        domain = request.get_host()
-        serializer = RecipeLinkSerializer(recipe, context={'domain': domain})
+        full_url = request.build_absolute_uri()
+        base_url = '/'.join(full_url.split('/')[:-5])
+        serializer = RecipeLinkSerializer(
+            recipe, 
+            context={'base_url': base_url}
+        )
         return Response(serializer.data)

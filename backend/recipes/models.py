@@ -1,24 +1,31 @@
 from django.db import models
-from users.models import User
 from django.core.validators import MinValueValidator
 from shortener.models import UrlMap
+
+from users.models import User
+from recipes.constants import MAX_NAME_LENGTH, MAX_MEASUREMET_LENGTH
 
 
 class Ingredient(models.Model):
     """Модель ингредиента"""
 
     name = models.CharField(
-        max_length=255,
+        max_length=MAX_NAME_LENGTH,
         verbose_name="Название ингредиента",
         help_text="Введите название ингредиента",
         unique=True
     )
 
     measurement_unit = models.CharField(
-        max_length=255,
+        max_length=MAX_MEASUREMET_LENGTH,
         verbose_name="Единица измерения",
         help_text="Введите единицу измерения"
     )
+
+    class Meta:
+        verbose_name = "Ингредиент"
+        verbose_name_plural = "Ингредиенты"
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -28,7 +35,7 @@ class Tag(models.Model):
     """Модель тега"""
 
     name = models.CharField(
-        max_length=255,
+        max_length=MAX_NAME_LENGTH,
         verbose_name="Название тега",
         help_text="Введите название тега",
         unique=True
@@ -83,7 +90,7 @@ class Recipe(models.Model):
         to=Ingredient,
         through="AmountIngredient",
     )
-    
+
     tags = models.ManyToManyField(
         Tag,
         related_name="recipes",
@@ -97,7 +104,7 @@ class Recipe(models.Model):
             MinValueValidator(1, "Укажите время приготовления!")
         ],
     )
-    
+
     pub_date = models.DateTimeField(
         auto_now_add=True, verbose_name="Дата публикации"
     )
@@ -113,7 +120,6 @@ class Recipe(models.Model):
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
         ordering = ["-pub_date"]
-
 
     def __str__(self):
         return self.name
@@ -147,7 +153,7 @@ class Favorites(models.Model):
 
     def __str__(self):
         return f"{self.user} {self.recipe}"
-    
+
 
 class ShoppingCart(models.Model):
     """Модель корзины"""

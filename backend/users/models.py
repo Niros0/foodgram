@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.contrib.auth.validators import UnicodeUsernameValidator
+
 from .constants import (
     MAX_USERNAME_LENGTH,
     MAX_EMAIL_LENGTH,
@@ -61,7 +62,7 @@ class UserProfile(AbstractUser):
 
     def __str__(self):
         return f"{self.username}: {self.email}"
-    
+
     @property
     def is_admin(self):
         return self.is_superuser or self.is_staff

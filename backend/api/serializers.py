@@ -1,28 +1,41 @@
-from users.models import User, Subscriptions
-from recipes.models import Tag, Ingredient, Recipe, Favorites, ShoppingCart, AmountIngredient
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from shortener.models import UrlMap
 from shortener.shortener import create
 from django.urls import reverse
-from django.http import request
 from collections.abc import Hashable
+
+from users.models import User, Subscriptions
+from recipes.models import (
+    Tag,
+    Ingredient,
+    Recipe,
+    Favorites,
+    ShoppingCart,
+    AmountIngredient
+)
+
 
 class BaseSerializer(serializers.ModelSerializer):
     """Базовый класс для валидации пустых и повторяющихся значений."""
 
     def validate_non_empty_list(self, field_name, value):
         if not value:
-            raise serializers.ValidationError(f"Поле {field_name} не должно быть пустым.")
+            raise serializers.ValidationError(
+                f"Поле {field_name} не должно быть пустым."
+            )
         unique_values = set()
         for item in value:
             if isinstance(item, Hashable):
                 if item in unique_values:
-                    raise serializers.ValidationError(f"Поле {field_name} содержит повторяющиеся элементы!")
+                    raise serializers.ValidationError(
+                        f"Поле {field_name} содержит повторяющиеся элементы!"
+                    )
                 unique_values.add(item)
         return value
-    
+
+
 class UserCreateSerializer(ModelSerializer):
     """Сериализатор для создания пользователя."""
 
@@ -73,7 +86,10 @@ class UserSerializer(ModelSerializer):
     def get_is_subscribed(self, obj):
         """Подписан ли пользователь на данного автора."""
         user = self.context.get("request").user
-        return user.is_authenticated and user.subscriptions.filter(author=obj).exists()
+        return (
+            user.is_authenticated
+            and user.subscriptions.filter(author=obj).exists()
+        )
 
 
 class AvatarSerializer(ModelSerializer):
@@ -186,9 +202,13 @@ class RecipeCreateSerializer(BaseSerializer):
 
     def validate_tags(self, value):
         return self.validate_non_empty_list('tags', value)
-    
+
     def validate_image(self, value):
-        return self.validate_non_empty_list('image', value)
+        if not value:
+            raise serializers.ValidationError(
+                "Поле image не должно быть пустым."
+            )
+        return value
 
     @staticmethod
     def create_ingredients(ingredients, recipe):
@@ -204,13 +224,16 @@ class RecipeCreateSerializer(BaseSerializer):
             )
         except Exception as e:
             raise serializers.ValidationError(f"Ингридиенты не найдены: {e}")
-        
+
     def create(self, validated_data: dict):
         tags = validated_data.pop("tags")
         ingredients = validated_data.pop("ingredients")
         author = self.context.get("request").user
         recipe = Recipe.objects.create(author=author, **validated_data)
-        short_link = create(user=author, link=reverse("api:recipes-detail", args=[recipe.id]))
+        api_link = reverse("api:recipes-detail", args=[recipe.id])
+        short_link = create(
+            user=author, link=api_link.replace('/api', '')
+        )
         recipe.short_link = UrlMap.objects.get(short_url=short_link)
         recipe.save()
         recipe.tags.set(tags)
@@ -221,9 +244,13 @@ class RecipeCreateSerializer(BaseSerializer):
         tags = validated_data.pop("tags", None)
         ingredients = validated_data.pop("ingredients", None)
         if ingredients is None:
-            raise serializers.ValidationError("Поле `ingredients` обязательно для обновления.")
+            raise serializers.ValidationError(
+                "Поле `ingredients` обязательно для обновления."
+            )
         if tags is None:
-            raise serializers.ValidationError("Поле `tags` обязательно для обновления.")
+            raise serializers.ValidationError(
+                "Поле `tags` обязательно для обновления."
+            )
         instance.tags.set(tags)
         instance.ingredients.clear()
         self.create_ingredients(ingredients, instance)
@@ -350,11 +377,15 @@ class SubscribeSerializer(serializers.ModelSerializer):
 class RecipeLinkSerializer(serializers.Serializer):
     short_link = serializers.SerializerMethodField()
 
-    class Meta:
-        fields = ('short_link',)
-
     def get_short_link(self, obj):
-        if obj.short_link:
-            domain = self.context.get('domain')
-            return f"https://{domain}/s/{obj.short_link.short_url}"
-        return None
+        base_url = self.context.get('base_url', '')
+        if obj.short_link and obj.short_link.short_url:
+            short_links = obj.short_link.short_url
+            return f"{base_url}/s/{short_links}"
+        return ""
+
+    def to_representation(self, obj):
+        ret = super().to_representation(obj)
+        if 'short_link' in ret:
+            ret['short-link'] = ret.pop('short_link')
+        return ret
