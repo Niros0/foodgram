@@ -254,9 +254,9 @@ class AvatarView(APIView):
         user.save()
 
         return Response(
-                {"avatar": request.build_absolute_uri(user.avatar.url)},
-                status=status.HTTP_200_OK
-            )
+            {"avatar": request.build_absolute_uri(user.avatar.url)},
+            status=status.HTTP_200_OK
+        )
 
     def delete(self, request):
         user = User.objects.get(pk=request.user.pk)

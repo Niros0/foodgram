@@ -4,9 +4,9 @@ from shortener.models import UrlMap
 
 from users.models import User
 from recipes.constants import (
-    MAX_NAME_LENGTH, 
-    MAX_MEASUREMET_LENGTH, 
-    MIN_AMOUNT, 
+    MAX_NAME_LENGTH,
+    MAX_MEASUREMET_LENGTH,
+    MIN_AMOUNT,
     MAX_AMOUNT
 )
 
