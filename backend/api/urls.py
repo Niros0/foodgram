@@ -22,10 +22,10 @@ router.register(r"users", UserViewSet)
 urlpatterns = (
     path("", include(router.urls)),
     path("auth/", include("djoser.urls.authtoken")),
-    path('users/me/avatar/', AvatarView.as_view(), name='avatar'),
+    path("users/me/avatar/", AvatarView.as_view(), name="avatar"),
     path(
-        'recipes/<int:pk>/get-link/',
+        "recipes/<int:pk>/get-link/",
         RecipeLinkView.as_view(),
-        name='get_recipe_link'
+        name="get_recipe_link"
     ),
 )

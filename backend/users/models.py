@@ -42,7 +42,7 @@ class UserProfile(AbstractUser):
     )
 
     avatar = models.ImageField(
-        upload_to='users/',
+        upload_to="users/",
         blank=True,
         null=True,
         verbose_name="Аватар пользователя",
@@ -52,10 +52,11 @@ class UserProfile(AbstractUser):
     password = models.CharField(
         verbose_name=("Пароль"),
         max_length=128,
-        help_text='Напишите пароль',
+        help_text="Напишите пароль",
     )
 
     class Meta:
+        ordering = ("username",)
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
         ordering = ("username",)
@@ -87,6 +88,7 @@ class Subscriptions(models.Model):
     class Meta:
         verbose_name = "Подписка"
         verbose_name_plural = "Подписки"
+        ordering = ("author",)
         constraints = [
             models.UniqueConstraint(
                 fields=["author", "user"],

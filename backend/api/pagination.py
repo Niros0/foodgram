@@ -8,4 +8,4 @@ class CustomPageNumberPagination(PageNumberPagination):
     Размер страницы устанавливается из настроек.
     """
     page_size = settings.CUSTOM_PAGE_SIZE
-    page_size_query_param = 'limit'
+    page_size_query_param = "limit"

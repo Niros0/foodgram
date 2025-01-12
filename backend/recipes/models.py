@@ -1,9 +1,14 @@
 from django.db import models
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from shortener.models import UrlMap
 
 from users.models import User
-from recipes.constants import MAX_NAME_LENGTH, MAX_MEASUREMET_LENGTH
+from recipes.constants import (
+    MAX_NAME_LENGTH, 
+    MAX_MEASUREMET_LENGTH, 
+    MIN_AMOUNT, 
+    MAX_AMOUNT
+)
 
 
 class Ingredient(models.Model):
@@ -74,7 +79,7 @@ class Recipe(models.Model):
     )
 
     image = models.ImageField(
-        upload_to='recipes/',
+        upload_to="recipes/",
         verbose_name="Картинка рецепта",
         help_text="Загрузите изображение рецепта",
     )
@@ -101,7 +106,14 @@ class Recipe(models.Model):
     cooking_time = models.PositiveSmallIntegerField(
         verbose_name="Время приготовления",
         validators=[
-            MinValueValidator(1, "Укажите время приготовления!")
+            MinValueValidator(
+                MIN_AMOUNT,
+                "Укажите время приготовления!"
+            ),
+            MaxValueValidator(
+                MAX_AMOUNT,
+                "Время приготовления не должно превышать 32 000 минут!"
+            )
         ],
     )
 
@@ -209,14 +221,19 @@ class AmountIngredient(models.Model):
         default=0,
         validators=[
             MinValueValidator(
-                1, "Количество ингредиентов должно быть не менее 1!"
+                MIN_AMOUNT,
+                "Количество ингредиентов должно быть не менее 1!"
+            ),
+            MaxValueValidator(
+                MAX_AMOUNT,
+                "Количество ингредиентов не должно превышать 32 000!"
             )
         ],
     )
 
     class Meta:
-        verbose_name = "Ингридиент"
-        verbose_name_plural = "Количество ингридиентов"
+        verbose_name = "Ингредиенты"
+        verbose_name_plural = "Количество ингредиентов"
         ordering = ("recipe",)
         constraints = [
             models.UniqueConstraint(

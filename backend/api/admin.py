@@ -28,9 +28,9 @@ class TagAdmin(admin.ModelAdmin):
     Этот класс настраивает интерфейс администратора для управления тегами.
     Он позволяет администраторам добавлять, изменять и удалять теги.
     """
-    list_display = ['name', 'slug']
-    search_fields = ['name', 'slug']
-    list_filter = ['name']
+    list_display = ["name", "slug"]
+    search_fields = ["name", "slug"]
+    list_filter = ["name"]
 
 
 class IngredientAdmin(admin.ModelAdmin):
@@ -41,9 +41,9 @@ class IngredientAdmin(admin.ModelAdmin):
     Он включает функции для поиска и фильтрации
     ингредиентов по имени и единице измерения.
     """
-    list_display = ['name', 'measurement_unit']
-    search_fields = ['name', 'measurement_unit']
-    list_filter = ['name']
+    list_display = ["name", "measurement_unit"]
+    search_fields = ["name", "measurement_unit"]
+    list_filter = ["name"]
 
 
 class SubscribeAdmin(admin.ModelAdmin):
@@ -53,12 +53,12 @@ class SubscribeAdmin(admin.ModelAdmin):
     Этот класс позволяет управлять подписками пользователей на рецепты.
     Он включает поиск по автору рецепта и пользователю.
     """
-    list_display = ['user', 'author']
+    list_display = ["user", "author"]
     search_fields = [
-        'author__username', 'author__email',
-        'user__username', 'user__email'
+        "author__username", "author__email",
+        "user__username", "user__email"
     ]
-    list_filter = ['author__username', 'user__username']
+    list_filter = ["author__username", "user__username"]
 
 
 class RecipesAdmin(admin.ModelAdmin):
@@ -69,9 +69,9 @@ class RecipesAdmin(admin.ModelAdmin):
     Он позволяет администраторам добавлять, изменять и удалять рецепты,
     а также управлять ингредиентами рецепта.
     """
-    list_display = ['id', 'name', 'author', 'favorites']
-    search_fields = ['name', 'author__username']
-    list_filter = ['tags', 'author', 'name']
+    list_display = ["id", "name", "author", "favorites"]
+    search_fields = ["name", "author__username"]
+    list_filter = ["tags", "author", "name"]
     inlines = (IngredientsInLine,)
 
     def favorites(self, obj):
@@ -90,8 +90,8 @@ class FavoriteAdmin(admin.ModelAdmin):
     Этот класс предоставляет интерфейс для управления избранными рецептами.
     Он включает отображение идентификатора, пользователя и рецепта.
     """
-    list_display = ['id', 'user', 'recipe']
-    search_fields = ['user__username', 'user__email']
+    list_display = ["id", "user", "recipe"]
+    search_fields = ["user__username", "user__email"]
 
 
 class ShoppingCartAdmin(admin.ModelAdmin):
@@ -101,17 +101,17 @@ class ShoppingCartAdmin(admin.ModelAdmin):
     Этот класс позволяет управлять корзиной покупок пользователей.
     Он включает отображение идентификатора пользователя и рецепта.
     """
-    list_display = ['id', 'user', 'recipe']
-    search_fields = ['user__username', 'user__email']
+    list_display = ["id", "user", "recipe"]
+    search_fields = ["user__username", "user__email"]
 
 
 class AmountIngredientAdmin(admin.ModelAdmin):
     """
     Класс администратора для модели AmountIngredientAdmin.
     """
-    list_display = ('recipe', 'ingredients', 'amount')
-    search_fields = ('recipe__name', 'ingredients__name')
-    list_filter = ('recipe', 'ingredients')
+    list_display = ("recipe", "ingredients", "amount")
+    search_fields = ("recipe__name", "ingredients__name")
+    list_filter = ("recipe", "ingredients")
 
 
 admin.site.register(AmountIngredient, AmountIngredientAdmin)

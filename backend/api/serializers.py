@@ -1,10 +1,11 @@
+from collections.abc import Hashable
+
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
 from drf_extra_fields.fields import Base64ImageField
 from rest_framework import serializers
 from shortener.models import UrlMap
 from shortener.shortener import create
 from django.urls import reverse
-from collections.abc import Hashable
 
 from users.models import User, Subscriptions
 from recipes.models import (
@@ -15,6 +16,7 @@ from recipes.models import (
     ShoppingCart,
     AmountIngredient
 )
+from recipes.constants import MIN_AMOUNT, MAX_AMOUNT
 
 
 class BaseSerializer(serializers.ModelSerializer):
@@ -78,14 +80,15 @@ class UserSerializer(ModelSerializer):
             "username",
             "first_name",
             "last_name",
-            'avatar',
+            "avatar",
             "is_subscribed",
         )
         read_only_fields = ("is_subscribed",)
 
     def get_is_subscribed(self, obj):
         """Подписан ли пользователь на данного автора."""
-        user = self.context.get("request").user
+        request = self.context["request"]
+        user = request.user
         return (
             user.is_authenticated
             and user.subscriptions.filter(author=obj).exists()
@@ -97,11 +100,10 @@ class AvatarSerializer(ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('avatar',)
+        fields = ("avatar",)
 
     def update(self, instance, validated_data):
-        print(instance.avatar)
-        instance.avatar = validated_data.get('avatar', instance.avatar)
+        instance.avatar = validated_data.get("avatar", instance.avatar)
         instance.save()
         return instance
 
@@ -116,7 +118,7 @@ class TagsSerializer(ModelSerializer):
 
 
 class IngredientSerializer(ModelSerializer):
-    """Сериализатор для вывода ингридиентов."""
+    """Сериализатор для вывода ингредиентов."""
 
     class Meta:
         model = Ingredient
@@ -172,9 +174,11 @@ class IngredientRecipeCreateSerializer(serializers.Serializer):
 
     id = serializers.IntegerField()
     amount = serializers.IntegerField(
-        min_value=1,
+        min_value=MIN_AMOUNT,
+        max_value=MAX_AMOUNT,
         error_messages={
-            "min_value": "Количество ингредиента должно быть не менее 1."
+            "min_value": "Количество ингредиента должно быть не менее 1.",
+            "max_value": "Количество ингредиента не может превышать 32,000."
         },
     )
 
@@ -185,6 +189,14 @@ class RecipeCreateSerializer(BaseSerializer):
         many=True, queryset=Tag.objects.all(), required=True
     )
     ingredients = IngredientRecipeCreateSerializer(many=True, required=True)
+    cooking_time = serializers.IntegerField(
+        min_value=MIN_AMOUNT,
+        max_value=MAX_AMOUNT,
+        error_messages={
+            "min_value": "Время приготовления должно быть не менее 1 минуты.",
+            "max_value": "Время приготовления не может превышать 32,000 минут."
+        },
+    )
 
     class Meta:
         model = Recipe
@@ -198,10 +210,10 @@ class RecipeCreateSerializer(BaseSerializer):
         )
 
     def validate_ingredients(self, value):
-        return self.validate_non_empty_list('ingredients', value)
+        return self.validate_non_empty_list("ingredients", value)
 
     def validate_tags(self, value):
-        return self.validate_non_empty_list('tags', value)
+        return self.validate_non_empty_list("tags", value)
 
     def validate_image(self, value):
         if not value:
@@ -223,7 +235,7 @@ class RecipeCreateSerializer(BaseSerializer):
                 for ingredient in ingredients
             )
         except Exception as e:
-            raise serializers.ValidationError(f"Ингридиенты не найдены: {e}")
+            raise serializers.ValidationError(f"Ингредиенты не найдены: {e}")
 
     def create(self, validated_data: dict):
         tags = validated_data.pop("tags")
@@ -232,7 +244,7 @@ class RecipeCreateSerializer(BaseSerializer):
         recipe = Recipe.objects.create(author=author, **validated_data)
         api_link = reverse("api:recipes-detail", args=[recipe.id])
         short_link = create(
-            user=author, link=api_link.replace('/api', '')
+            user=author, link=api_link.replace("/api", "")
         )
         recipe.short_link = UrlMap.objects.get(short_url=short_link)
         recipe.save()
@@ -346,8 +358,6 @@ class SubscribeSerializer(serializers.ModelSerializer):
     def get_avatar(self, obj):
         if obj.author.avatar:
             return obj.author.avatar.url
-        else:
-            return None
 
     def validate(self, attrs):
         author = attrs["author"]
@@ -378,7 +388,7 @@ class RecipeLinkSerializer(serializers.Serializer):
     short_link = serializers.SerializerMethodField()
 
     def get_short_link(self, obj):
-        base_url = self.context.get('base_url', '')
+        base_url = self.context.get("base_url", "")
         if obj.short_link and obj.short_link.short_url:
             short_links = obj.short_link.short_url
             return f"{base_url}/s/{short_links}"
@@ -386,6 +396,6 @@ class RecipeLinkSerializer(serializers.Serializer):
 
     def to_representation(self, obj):
         ret = super().to_representation(obj)
-        if 'short_link' in ret:
-            ret['short-link'] = ret.pop('short_link')
+        if "short_link" in ret:
+            ret["short-link"] = ret.pop("short_link")
         return ret

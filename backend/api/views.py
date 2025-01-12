@@ -23,7 +23,7 @@ from recipes.models import (
     AmountIngredient
 )
 from api.pagination import CustomPageNumberPagination
-from api.permissions import IsAuthOwner, IsAuthAdminAuthorOrReadOnly
+from api.permissions import IsAuthAdminAuthorOrReadOnly
 from api.serializers import (
     AvatarSerializer,
     TagsSerializer,
@@ -56,14 +56,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if self.request.user.is_authenticated:
             is_in_shopping_cart_subquery = Exists(
-                ShoppingCart.objects.filter(
-                    recipe_id=OuterRef("id"), user=self.request.user
+                self.request.user.shoppinga_cart.filter(
+                    recipe_id=OuterRef("id")
                 )
             )
             is_favorited_subquery = Exists(
-                Favorites.objects.filter(
-                    recipe_id=OuterRef("id"), user=self.request.user
-                )
+                self.request.user.favorites.filter(recipe_id=OuterRef("id"))
             )
             queryset = queryset.annotate(
                 is_in_shopping_cart=is_in_shopping_cart_subquery,
@@ -118,7 +116,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 data={"recipe": recipe.id, "user": user.id}
             )
             serializer.is_valid(raise_exception=True)
-            if ShoppingCart.objects.filter(recipe=recipe, user=user).exists():
+            if user.shoppinga_cart.filter(recipe=recipe).exists():
                 return Response(
                     {"message": "Рецепт уже в корзине."},
                     status=status.HTTP_400_BAD_REQUEST,
@@ -168,26 +166,26 @@ class IngredientViewSet(ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     filter_backends = (DjangoFilterBackend, filters.SearchFilter)
-    filterset_fields = ('name',)
-    search_fields = ('name',)
+    filterset_fields = ("name",)
+    search_fields = ("name",)
 
 
 class UserViewSet(DjoserUserViewSet):
     pagination_class = CustomPageNumberPagination
 
     @action(detail=False,
-            methods=['get', 'patch', ],
-            permission_classes=(IsAuthOwner,))
+            methods=["get", "patch", ],
+            permission_classes=(IsAuthAdminAuthorOrReadOnly,))
     def me(self, request):
         """
         Позволяет пользователю получить или обновить свои данные.
         Доступно только для аутентифицированных пользователей.
         """
         user = request.user
-        if request.method == 'GET':
+        if request.method == "GET":
             serializer = self.get_serializer(user)
             return Response(serializer.data)
-        elif request.method == 'PATCH':
+        elif request.method == "PATCH":
             serializer = self.get_serializer(
                 user, data=request.data, partial=True
             )
@@ -232,10 +230,10 @@ class UserViewSet(DjoserUserViewSet):
         """Список подписок на авторов."""
         user = request.user
         subscribe = (
-            Subscriptions.objects.filter(user=user)
-            .prefetch_related("author__recipes")
+            user.subscriptions.prefetch_related("author__recipes")
             .annotate(recipes_count=Count("author__recipes"))
-        ).order_by("author__email")
+            .order_by("author__email")
+        )
         page = self.paginate_queryset(subscribe)
         serializer = SubscribeSerializer(
             page, many=True, context={"request": request}
@@ -244,40 +242,39 @@ class UserViewSet(DjoserUserViewSet):
 
 
 class AvatarView(APIView):
-    permission_classes = [IsAuthOwner]
+    permission_classes = [IsAuthAdminAuthorOrReadOnly]
     serializer_class = AvatarSerializer
 
     def put(self, request):
         user = User.objects.get(pk=request.user.pk)
         serializer = self.serializer_class(data=request.data)
 
-        if serializer.is_valid():
-            serializer.update(user, serializer.validated_data)
-            user.save()
-            return Response(
-                {'avatar': request.build_absolute_uri(user.avatar.url)},
+        serializer.is_valid(raise_exception=True)
+        serializer.update(user, serializer.validated_data)
+        user.save()
+
+        return Response(
+                {"avatar": request.build_absolute_uri(user.avatar.url)},
                 status=status.HTTP_200_OK
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
         user = User.objects.get(pk=request.user.pk)
         if user.avatar:
             user.avatar.delete()
-            user.avatar = None
             user.save()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class RecipeLinkView(APIView):
     def get(self, request, pk):
         recipe = get_object_or_404(Recipe, id=pk)
         full_url = request.build_absolute_uri()
-        base_url = '/'.join(full_url.split('/')[:-5])
+        base_url = "/".join(full_url.split("/")[:-5])
         serializer = RecipeLinkSerializer(
             recipe,
-            context={'base_url': base_url}
+            context={"base_url": base_url}
         )
         return Response(serializer.data)
