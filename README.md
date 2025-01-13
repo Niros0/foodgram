@@ -60,4 +60,6 @@ sudo docker compose -f docker-compose.production.yml exec backend python manage.
 sudo docker compose -f docker-compose.production.yml exec backend cp -r /app/collected_static/. /static/static/
 ```
 
+Проект доступен по ссылке https://foodgramm.serveblog.net/.
+
 Также возможно автоматизировать весь процесс развертывания проекта на удаленном сервере с помощью GitHub Actions.
