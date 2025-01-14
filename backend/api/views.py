@@ -1,4 +1,4 @@
-from rest_framework import viewsets, filters
+from rest_framework import viewsets
 from djoser.views import UserViewSet as DjoserUserViewSet
 from rest_framework.views import APIView
 from rest_framework import status
