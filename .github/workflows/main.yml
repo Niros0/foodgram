@@ -143,6 +143,8 @@ jobs:
             sudo docker compose -f docker-compose.production.yml down
             sudo docker compose -f docker-compose.production.yml up -d
             # Выполняет миграции и сбор статики
+            sudo docker compose -f docker-compose.production.yml exec backend mkdir -p /app/static/css
+            sudo docker cp static/css/pdf.css $(sudo docker-compose -f docker-compose.production.yml ps -q backend):/app/static/css/
             sudo docker compose -f docker-compose.production.yml exec backend python manage.py makemigrations shortener
             sudo docker compose -f docker-compose.production.yml exec backend python manage.py makemigrations users
             sudo docker compose -f docker-compose.production.yml exec backend python manage.py migrate
