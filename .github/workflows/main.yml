@@ -144,7 +144,7 @@ jobs:
             sudo docker compose -f docker-compose.production.yml up -d
             # Выполняет миграции и сбор статики
             sudo docker compose -f docker-compose.production.yml exec backend mkdir -p /app/static/css
-            sudo docker cp static/css/pdf.css $(sudo docker-compose -f docker-compose.production.yml ps -q backend):/app/static/css/
+            sudo docker cp static/css/pdf.css $(sudo docker compose -f docker-compose.production.yml ps -q backend):/app/static/css/
             if sudo docker compose -f docker-compose.production.yml exec backend test -f /app/static/css/pdf.css; then
                 echo "Файл pdf.css существует"
             else
