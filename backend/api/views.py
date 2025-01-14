@@ -36,7 +36,7 @@ from api.serializers import (
     RecipeLinkSerializer
 )
 from users.models import User, Subscriptions
-from .filters import RecipeFilter
+from .filters import RecipeFilter, IngredientFilter
 
 
 class TagsViewSet(ReadOnlyModelViewSet):
@@ -165,9 +165,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
 class IngredientViewSet(ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    filter_backends = (DjangoFilterBackend, filters.SearchFilter)
-    filterset_fields = ("name",)
-    search_fields = ("name",)
+    filterset_class = IngredientFilter
 
 
 class UserViewSet(DjoserUserViewSet):
